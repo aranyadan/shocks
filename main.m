@@ -1,3 +1,4 @@
+tic;
 clc;
 clear all;
 %% grid generation
@@ -39,7 +40,7 @@ if DISPLAYMESH == 1
     end
     hold on;
     for i = 1:size(x,2)
-        scatter(x(:,i),y(:,i),15,'filled');
+        scatter(x(:,i),y(:,i),5,'filled');
         plot(x(:,i),y(:,i));
     end
 end
@@ -107,8 +108,9 @@ for i = 1:nX
         H(:,j,i,1) = J(3,j,i) .* F(:,j,i,1) + J(4,j,i) .* G(:,j,i,1);
     end
 end
-
+toc;
 %% Solver Loop
 for i = 2:nt
-    
+    [fcap_r,fcap_l] = getcaps(U,F,G,dX,dY,i-1);
+    [gcap_r,gcap_l] = getcaps(U,G,2,dX,dY,i-1);
 end
