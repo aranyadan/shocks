@@ -1,6 +1,6 @@
 %% Generate reconstructed fluxes from weno5
-function [fcap_r,fcap_l] = getcaps(U,F,G,dx,dy,t)
-%% Split the flux
+function [resx,resy] = get_derivs(U,F,H,dX,dY,J)
+%% compute alpha for lax Friedrich's splitting
 nX = size(F,3);
 nY = size(F,2);
 gamma = 1.4;
@@ -13,28 +13,54 @@ dGdU = @(u,v,p,rho) [                                            0,          0, 
                                                  u^2/5 - (4*v^2)/5,   -(2*u)/5,                               (8*v)/5,     2/5;
                       -(3*rho*u^2*v + 3*rho*v^3 + 35*p*v)/(10*rho), -(2*u*v)/5, (5*rho*u^2 + rho*v^2 + 35*p)/(10*rho), (7*v)/5] ;                 
 maxf = zeros(4,1);
-maxg = maxf;
+maxh = maxf;
 for i = 1:nX
     for j = 1:nY
         %  extract primitive variables
-        rho = U(1,j,i,t);
-        u = U(2,j,i,t) / U(1,j,i,t);
-        v = U(3,j,i,t) / U(1,j,i,t);
-        V = sqrt(u*u+v*v);
-        p = (U(4,j,i,t)/U(1,j,i,t) - 0.5*V) * rho * (gamma-1);
+        [u,v,p,rho] = get_primitives(U(:,j,i));
         A1 = max(dFdU(u,v,p,rho),[],2);
-        A2 = max(dGdU(u,v,p,rho),[],2);
+        A2 = dFdU(u,v,p,rho).* J(3,j,i) + dGdU(u,v,p,rho) .* J(4,j,i);
+        A3 = max(A2,[],2);
         
         maxf = 0.5 * (A1+maxf+ abs(A1-maxf));
-        maxg = 0.5*( A2+maxg+abs(A2-maxg));
+        maxh = 0.5 * (A3+maxh+ abs(A3-maxh));
+    end
+end
+F_p = zeros(4,nY,nX);
+F_m = F_p;
+H_p = F_p;
+H_m = F_p;
+
+%% split the fluxes
+for i = 1:nX
+    for j = 1:nY
+        for k = 1:4
+            F_p(k,j,i) = 0.5*(F(k,j,i) + maxf(k).*U(k,j,i));
+            F_m(k,j,i) = 0.5*(F(k,j,i) - maxf(k).*U(k,j,i));
+            H_p(k,j,i) = 0.5*(H(k,j,i) + maxh(k).*U(k,j,i));
+            H_m(k,j,i) = 0.5*(H(k,j,i) - maxh(k).*U(k,j,i));
+        end
     end
 end
 
-%% iteration to reconstruct the parts
-for i = 4:nX-3
-    for j = 4:nY-3
-        ;
+%% compute derivatives
+resx = WENO5(F_p,F_m,dX,1);
+resy = WENO5(H_p,H_m,dY,2);
+
+%% pad the derivatives with 0th order interpolation
+for i = 1:nX
+    for j = 1:nY
+        if(i<4)
+            resx(:,j,i) = resx(:,j,4);
+        end
+        if(j<4)
+            resy(:,j,i) = resy(:,4,i);
+        end
+        if(i>nX-3)
+            resx(:,j,i) = resx(:,j,nX-3);
+        end
+        if(j>nY-3)
+            resy(:,j,i) = resy(:,nY-3,i);
+        end
     end
 end
-fcap_l=0;
-fcap_r = 0;

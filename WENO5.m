@@ -1,14 +1,74 @@
-    %% Calculation of fcap
-function res = WENO5(w,f,dx,i,j)
+function res = WENO5(fp,fm,dx,dir)
+% *************************************************************************
+% Input: u(i) = [u(i-2) u(i-1) u(i) u(i+1) u(i+2)];
+% Output: res = df/dx;
+%
+% Based on:
+% C.W. Shu's Lectures notes on: 'ENO and WENO schemes for Hyperbolic
+% Conservation Laws' 
+%
+% coded by Manuel Diaz, 02.10.2012, NTU Taiwan.
+% *************************************************************************
+%
+% Domain cells (I{i}) reference:
+%
+%                |           |   u(i)    |           |
+%                |  u(i-1)   |___________|           |
+%                |___________|           |   u(i+1)  |
+%                |           |           |___________|
+%             ...|-----0-----|-----0-----|-----0-----|...
+%                |    i-1    |     i     |    i+1    |
+%                |-         +|-         +|-         +|
+%              i-3/2       i-1/2       i+1/2       i+3/2
+%
+% ENO stencils (S{r}) reference:
+%
+%
+%                               |___________S2__________|
+%                               |                       |
+%                       |___________S1__________|       |
+%                       |                       |       |
+%               |___________S0__________|       |       |
+%             ..|---o---|---o---|---o---|---o---|---o---|...
+%               | I{i-2}| I{i-1}|  I{i} | I{i+1}| I{i+2}|
+%                                      -|
+%                                     i+1/2
+%
+%
+%               |___________S0__________|
+%               |                       |
+%               |       |___________S1__________|
+%               |       |                       |
+%               |       |       |___________S2__________|
+%             ..|---o---|---o---|---o---|---o---|---o---|...
+%               | I{i-2}| I{i-1}|  I{i} | I{i+1}| I{i+2}|
+%                               |+
+%                             i-1/2
+%
+% WENO stencil: S{i} = [ I{i-2},...,I{i+2} ]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Note: by using circshift over our domain, we are implicitly creating
+% favorable code that includes periodical boundary conditions. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Lax-Friedrichs Flux Splitting
+% a=max(abs(dflux(w))); v=0.5*(flux(w)+a*w); u=circshift(0.5*(flux(w)-a*w),[0,-1]);
+if(dir==1)
+    turn=[0 1];
+elseif(dir==2)
+    turn=[1 0];
+else
+    display('direction error');
+end
+v = fp;
+u = circshift(fm,-1*turn);
 %% Right Flux
 % Choose the positive fluxes, 'v', to compute the left cell boundary flux:
-% $u_{i+1/2}^{-}$
+% $u_{i+1/2}^{+}$
+vmm = circshift(v,2*turn);
+vm  = circshift(v,turn);
+vp  = circshift(v,-1*turn);
+vpp = circshift(v,-2*turn);
 
-        vmm = f(i-2,j);
-        vm  = f(i-1,j);
-        vp  = f(i+1,j);
-        vpp = f(i+2,j);
-        v   = f(i,j);
 % Polynomials
 p0n = (2*vmm - 7*vm + 11*v)/6;
 p1n = ( -vm  + 5*v  + 2*vp)/6;
@@ -33,30 +93,26 @@ w0n = alpha0n./alphasumn;
 w1n = alpha1n./alphasumn;
 w2n = alpha2n./alphasumn;
 
-% Numerical Flux at cell boundary, $u_{i+1/2}^{-}$;
+% Numerical Flux at cell boundary, $u_{i+1/2}^{+}$;
 hn = w0n.*p0n + w1n.*p1n + w2n.*p2n;
 
 %% Left Flux 
 % Choose the negative fluxes, 'u', to compute the left cell boundary flux:
-% $u_{i+1/2}^{+}$ 
-   umm = f(i-1,j);
-   um  = f(i+1,j);
-   up  = f(i+2,j);
-   upp = f(i+3,j);
-   u   = f(i,j);
-  % umm = f(i,j-1);
-  % um  = f(i,j+1);
-  % up  = f(i,j+2);
-  % upp = f(i,j+3);
+% $u_{i+1/2}^{-}$ 
+umm = circshift(u,2*turn);
+um  = circshift(u,turn);
+up  = circshift(u,-1*turn);
+upp = circshift(u,-2*turn);
+
 % Polynomials
-p0p = ( -umm + 5*u + 2*um )/6;
-p1p = ( 2*u + 5*um  - up   )/6;
+p0p = ( -umm + 5*um + 2*u  )/6;
+p1p = ( 2*um + 5*u  - up   )/6;
 p2p = (11*u  - 7*up + 2*upp)/6;
 
 % Smooth Indicators (Beta factors)
-B0p = 13/12*(umm-2*u+um  ).^2 + 1/4*(umm-4*u+3*um).^2; 
-B1p = 13/12*(u -2*um +up ).^2 + 1/4*(u-up).^2;
-B2p = 13/12*(um  -2*up+upp).^2 + 1/4*(3*u -4*up+upp).^2;
+B0p = 13/12*(umm-2*um+u  ).^2 + 1/4*(umm-4*um+3*u).^2; 
+B1p = 13/12*(um -2*u +up ).^2 + 1/4*(um-up).^2;
+B2p = 13/12*(u  -2*up+upp).^2 + 1/4*(3*u -4*up+upp).^2;
 
 % Constants
 d0p = 3/10; d1p = 6/10; d2p = 1/10; epsilon = 1e-6;
@@ -72,15 +128,8 @@ w0p = alpha0p./alphasump;
 w1p = alpha1p./alphasump;
 w2p = alpha2p./alphasump;
 
-% Numerical Flux at cell boundary, $u_{i-1/2}^{+}$;
+% Numerical Flux at cell boundary, $u_{i+1/2}^{-}$;
 hp = w0p.*p0p + w1p.*p1p + w2p.*p2p;
 
-tt=w(i+1,j);
-pp=w(i,j);
-abar=(vp-v)./(tt-pp);
-if(abar>=0)
-    fc=hp/dx;
-else
-    fc = hn/dx;
-end
-res = fc;
+%% Compute finite volume residual term, df/dx.
+res = (hp - circshift(hp,turn)+hn - circshift(hn,turn))/dx;

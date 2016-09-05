@@ -7,7 +7,7 @@ clear all;
 
 wedges = 1;
 thetad = 45;
-
+nt = 5;
 DISPLAYMESH = 0;
 A = 2; % wedge start x
 H = 2.5; % height in the beginning
@@ -55,7 +55,7 @@ dY = det;
 
 C = 0.5;
 dt = C * dY;
-nt = 5;
+
 
 %% Jacobian matrix
 % [dzeta , deta] = J [dx , dy]
@@ -108,9 +108,33 @@ for i = 1:nX
         H(:,j,i,1) = J(3,j,i) .* F(:,j,i,1) + J(4,j,i) .* G(:,j,i,1);
     end
 end
-toc;
+
 %% Solver Loop
 for i = 2:nt
-    [fcap_r,fcap_l] = getcaps(U,F,G,dX,dY,i-1);
-    [gcap_r,gcap_l] = getcaps(U,G,2,dX,dY,i-1);
+    U_0 = U(:,:,:,i-1);
+    
+    [F_0,H_0] = construct_fluxes(U_0,J);
+    [resx,resy] = get_derivs(U_0,F_0,H_0,dX,dY,J);
+    
+    U_1 = U_0 - dt * (resx+resy);   % RK3 step 1
+    
+    [F_1,H_1] = construct_fluxes(U_1,J);
+    [resx,resy] = get_derivs(U_1,F_1,H_1,dX,dY,J);
+    
+    U_2 = (3/4) * U_0 + (1/4) * U_1 - (1/4) * dt * (resx+resy);  % RK3 Step 2
+    
+    [F_2,H_2] = construct_fluxes(U_2,J);
+    [resx,resy] = get_derivs(U_2,F_2,H_2,dX,dY,J);
+    
+    U_3 = (1/3) * U_0 + (2/3) * U_2 - (2/3) * dt * (resx+resy);  % RK3 Step 3
+    
+    for j = 1:nX
+        for k = 1:nY
+            U(:,k,j,i) = U_3(:,k,j);
+        end
+    end
+    
+    percent = i*100/nt;
+    display(['Calculated for time step ' num2str(i) ' of ' num2str(nt) ' (' num2str(percent) '%)']);
 end
+toc;
