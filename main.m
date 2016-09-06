@@ -9,9 +9,10 @@ wedges = 1;
 thetad = 45;
 nt = 5;
 DISPLAYMESH = 0;
+CALCULATEX = 1;
 A = 2; % wedge start x
 H = 2.5; % height in the beginning
-dz = 0.1; finalz = 3.9;
+dz = 0.1; finalz = 4;
 nz = finalz/dz + 1;
 zeta = 0:dz:(nz-1)*dz;
 nx = nz;
@@ -21,9 +22,9 @@ eta = 0:det:1;
 neta = (1/det)+1;
 ny = neta;
 
-if DISPLAYMESH == 1
-    x = zeros(length(zeta),neta);
-    y = zeros(length(zeta),neta);
+if (CALCULATEX == 1)    
+    x = zeros(neta,length(zeta));
+    y = zeros(neta,length(zeta));
     for i = 1:length(zeta)
         if(zeta(i)<=A)
             h = H;
@@ -32,16 +33,18 @@ if DISPLAYMESH == 1
             h = H - (zeta(i)-A) * tand(thetad);
             ys = (zeta(i)-A) * tand(thetad);
         end
-        y(i,:) = eta(:).*h + ys;
+        y(:,i) = eta(:).*h + ys;
 
         xtemp = zeros(1,neta);
         xtemp(:) = zeta(i);
-        x(i,:) = xtemp;
+        x(:,i) = xtemp';
     end
-    hold on;
-    for i = 1:size(x,2)
-        scatter(x(:,i),y(:,i),5,'filled');
-        plot(x(:,i),y(:,i));
+    if DISPLAYMESH == 1
+        hold on;
+        for i = 1:size(x,1)
+            scatter(x(i,:),y(i,:),5,'filled');
+            plot(x(i,:),y(i,:));
+        end
     end
 end
 
