@@ -1,16 +1,16 @@
 tic;
 clc;
-clear all;
+% clear;
 %% grid generation
 % zeta = x
 % eta = (y - ys(x)) / h(x)
 
 wedges = 1;
-thetad = 45;
+thetad = 5;
 nt = 5;
 DISPLAYMESH = 0;
 CALCULATEX = 1;
-A = 2; % wedge start x
+A = 1; % wedge start x
 H = 2.5; % height in the beginning
 dz = 0.1; finalz = 4;
 nz = finalz/dz + 1;
@@ -91,7 +91,7 @@ U=zeros(4,nY,nX,nt);
 F = U;
 G = U;
 H = U;
-
+P = U;
 for i = 1:nX
     for j=1:nY
         p = pinf;
@@ -105,10 +105,9 @@ for i = 1:nX
         end
         VEL = sqrt(u^2 + v^2);
         E = e + 0.5 * VEL^2;
+        P(:,j,i,1) = [u        v            p           rho];
         U(:,j,i,1) = [rho      rho*u        rho*v       rho*E];
-        F(:,j,i,1) = [rho*u    rho*u^2+p    rho*u*v     rho*u*E*+p*u];
-        G(:,j,i,1) = [rho*v    rho*u*v      rho*v^2+p   rho*v*E+p*v];
-        H(:,j,i,1) = J(3,j,i) .* F(:,j,i,1) + J(4,j,i) .* G(:,j,i,1);
+        
     end
 end
 
@@ -134,6 +133,8 @@ for i = 2:nt
     for j = 1:nX
         for k = 1:nY
             U(:,k,j,i) = U_3(:,k,j);
+            [u,v,p,rho] = get_primitives(U(:,k,j,i));
+            P(:,k,j,i) = [u,v,p,rho];
         end
     end
     

@@ -53,9 +53,9 @@ function res = WENO5(fp,fm,dx,dir)
 % Lax-Friedrichs Flux Splitting
 % a=max(abs(dflux(w))); v=0.5*(flux(w)+a*w); u=circshift(0.5*(flux(w)-a*w),[0,-1]);
 if(dir==1)
-    turn=[0 1];
+    turn=[0 0 1];
 elseif(dir==2)
-    turn=[1 0];
+    turn=[0 1 0];
 else
     display('direction error');
 end
@@ -133,3 +133,6 @@ hp = w0p.*p0p + w1p.*p1p + w2p.*p2p;
 
 %% Compute finite volume residual term, df/dx.
 res = (hp - circshift(hp,turn)+hn - circshift(hn,turn))/dx;
+if(length(unique(isnan(res)))==2)
+    ;
+end
